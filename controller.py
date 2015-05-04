@@ -1,8 +1,3 @@
-'''
-Please add your name:
-Please add your matric number: 
-'''
-
 from pox.core import core
 from collections import defaultdict
 
@@ -16,6 +11,8 @@ from pox.lib.util import dpidToStr
 from pox.lib.addresses import IPAddr, EthAddr
 from collections import namedtuple
 import os
+from collections import namedtuple
+from csv import DictReader
 
 log = core.getLogger()
 
@@ -75,7 +72,26 @@ class VideoSlice (EventMixin):
         '''
         Add your logic here for firewall application
         '''
+        policies = self.read_policies(policyFile)
+        for key, value in policies.iteritems():
+            print "Source Mac" + value.scr
+            print "Destination Mac" + value.dst
+
+    def read_policies(self, file):
+        with open(file, 'r') as f:
+            reader = DictReader(f, delimiter = ",")
+            Policy = namedtuple('Policy', 'scr dst')
+            policies = {}
+            for row in reader:
+                policies[row['id']] = Policy(EthAddr(row['mac_0']), EthAddr(row['mac_1']))
+                print policies[row['id']]
+        return policies
+
 def launch():
+
+    # Accept user input, the path of the policy file
+    policyFile = sys.argv[1]
+
     # Run spanning tree so that we can deal with topologies with loops
     pox.openflow.discovery.launch()
     pox.openflow.spanning_tree.launch()
@@ -84,3 +100,4 @@ def launch():
     Starting the Video Slicing module
     '''
     core.registerNew(VideoSlice)
+
