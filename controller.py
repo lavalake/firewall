@@ -4,15 +4,19 @@ from collections import defaultdict
 import pox.openflow.libopenflow_01 as of
 import pox.openflow.discovery
 import pox.openflow.spanning_tree
+import pox.lib.packet as pkt
 
 from pox.lib.revent import *
 from pox.lib.util import dpid_to_str
 from pox.lib.util import dpidToStr
 from pox.lib.addresses import IPAddr, EthAddr
+
 from collections import namedtuple
 import os
 from collections import namedtuple
 from csv import DictReader
+
+import socket
 
 log = core.getLogger()
 Policy = namedtuple('Policy', ('src', 'dst'))
@@ -76,10 +80,19 @@ class VideoSlice (EventMixin):
         '''
         policies = self.read_policies(policyFile)
         for policy in policies.itervalues():
-            log.debug("~~> Source Mac is %s", policy.src)
-            log.debug("~~> Destination Mac is %s", policy.dst)
+            if type(policy.src) is IPAddr and type(policy.dst) is IPAddr:
+                log.debug("~~> Source IP address is %s", policy.src)
+                log.debug("~~> Destination IP address is %s", policy.dst)
 
-            match = of.ofp_match(dl_src = policy.src, dl_dst = policy.dst)
+                match = of.ofp_match(dl_type=0x800,  nw_proto = pkt.ipv4.ICMP_PROTOCOL)
+                match.nw_src = policy.src
+                match.nw_dst = policy.dst
+
+            elif type(policy.src) is EthAddr and type(policy.dst) is EthAddr:
+                log.debug("~~> Source Mac is %s", policy.src)
+                log.debug("~~> Destination Mac is %s", policy.dst)
+
+                match = of.ofp_match(dl_src = policy.src, dl_dst = policy.dst)
 
             # install the mods to block matches
             fm = of.ofp_flow_mod()
@@ -96,9 +109,16 @@ class VideoSlice (EventMixin):
             
             policies = {}
             for row in reader:
-                policies[row['id']] = Policy(EthAddr(row['mac_0']), EthAddr(row['mac_1']))
+                addr1 = row['mac_0']
+                addr2 = row['mac_1']
+                if "." in addr1 and "." in addr2:
+                    policies[row['id']] = Policy(IPAddr(addr1), IPAddr(addr2))
+                else:
+                    policies[row['id']] = Policy(EthAddr(addr1), EthAddr(addr2))
+                
                 print policies[row['id']]
         return policies
+
 
 def launch():
     
