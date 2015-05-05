@@ -162,9 +162,27 @@ class VideoSlice (EventMixin):
                 log.debug("Source IP address is %s", policy.src)
                 log.debug("Destination IP address is %s", policy.dst)
 
-                match = of.ofp_match(dl_type=0x800,  nw_proto = pkt.ipv4.ICMP_PROTOCOL)
-                match.nw_src = policy.src
-                match.nw_dst = policy.dst
+                match1 = of.ofp_match(dl_type=0x800,  nw_proto = pkt.ipv4.ICMP_PROTOCOL)
+                match1.nw_src = policy.src
+                match1.nw_dst = policy.dst
+
+                # install the mods to block matches
+                fm1 = of.ofp_flow_mod()
+                fm1.priority = 20  
+                fm1.match = match1
+                fm1.hard_timeout = 0
+                event.connection.send(fm1)
+
+                match2 = of.ofp_match(dl_type=0x800,  nw_proto = 6)
+                match2.nw_src = policy.src
+                match2.nw_dst = policy.dst
+
+                # install the mods to block matches
+                fm2 = of.ofp_flow_mod()
+                fm2.priority = 20  
+                fm2.match = match1
+                fm2.hard_timeout = 0
+                event.connection.send(fm2)
 
             elif type(policy.src) is EthAddr and type(policy.dst) is EthAddr:
                 log.debug("Source Mac is %s", policy.src)
@@ -172,18 +190,18 @@ class VideoSlice (EventMixin):
 
                 match = of.ofp_match(dl_src = policy.src, dl_dst = policy.dst)
 
-            # install the mods to block matches
-            fm = of.ofp_flow_mod()
-            fm.priority = 20  
-            fm.match = match
-            fm.hard_timeout = 0
-            event.connection.send(fm)
+                # install the mods to block matches
+                fm = of.ofp_flow_mod()
+                fm.priority = 20  
+                fm.match = match
+                fm.hard_timeout = 0
+                event.connection.send(fm)
 
             log.debug("Firewall rules installed on %s", dpidToStr(event.dpid))
 
         for port in ports.itervalues():
             log.debug("Forbidden Port number is %s", port)
-            pmatch = of.ofp_match(dl_type=0x800,  nw_proto = pkt.ipv4.ICMP_PROTOCOL, 
+            pmatch = of.ofp_match(dl_type=0x800,  nw_proto = 6, 
                                 tp_dst = int(port))
 
             #installl the mods to block matches
