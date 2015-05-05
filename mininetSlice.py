@@ -37,7 +37,7 @@ class FVTopo(Topo):
             self.addSwitch('s%d' % (i+1), **sconfig)
 
         # Create host nodes
-        for i in range(4):
+        for i in range(6):
             self.addHost('h%d' % (i+1), **hconfig)
 
         # Add switch links
@@ -47,11 +47,13 @@ class FVTopo(Topo):
         self.addLink('s3', 's1', port1=1, port2=2, **video_link_config)
         self.addLink('h1', 's1', port1=1, port2=3, **host_link_config)
         self.addLink('h2', 's1', port1=1, port2=4, **host_link_config)
+        self.addLink('h3', 's1', port1=1, port2=5, **host_link_config)
+        self.addLink('h4', 's1', port1=1, port2=6, **host_link_config)
         
         self.addLink('s2', 's4', port1=2, port2=1, **http_link_config)
         self.addLink('s3', 's4', port1=2, port2=2, **video_link_config)
-        self.addLink('h3', 's4', port1=1, port2=3, **host_link_config)
-        self.addLink('h4', 's4', port1=1, port2=4, **host_link_config)
+        self.addLink('h5', 's4', port1=1, port2=3, **host_link_config)
+        self.addLink('h6', 's4', port1=1, port2=4, **host_link_config)
         
         info( '\n*** printing and validating the ports running on each interface\n' )
         

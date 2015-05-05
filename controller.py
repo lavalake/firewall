@@ -56,40 +56,52 @@ class VideoSlice (EventMixin):
                 flood()
                 return
             else:
-                log.debug("Got unicast packet for %s at %s (input port %d):",
-                          packet.dst, dpid_to_str(event.dpid), event.port)
+                ippkt = packet.find('ipv4')
+                log.debug("Got unicast packet for %s %s at %s (input port %d):",
+                          ippkt.dstip, packet.dst, dpid_to_str(event.dpid), event.port)
                 '''
 
                 Add your logic here to slice the network
 
                 '''
-                ippkt = packet.find('ipv4')
                 if dpid_to_str(event.dpid) == '00-00-00-00-00-01' :
                     
                     destPort = tcpp.dstport
                     srcPort = tcpp.srcport
                     if destPort == 1880 or srcPort == 1880 :
                         log.debug("video service go high band")
-                        if event.port == 3 or event.port == 4:
+                        if event.port == 3 or event.port == 4 or event.port == 5 or event.port == 6:
                             install_fwdrule(event,packet,2) 
                         else:
                             if ippkt.dstip == '10.0.0.1':
                                 install_fwdrule(event,packet,3) 
                                 log.debug("go to h1")
-                            else:
+                            elif ippkt.dstip == '10.0.0.2':
                                 install_fwdrule(event,packet,4) 
                                 log.debug("go to h2")
+                            elif ippkt.dstip == '10.0.0.3':
+                                install_fwdrule(event,packet,5) 
+                                log.debug("go to h3")
+                            elif ippkt.dstip == '10.0.0.4':
+                                install_fwdrule(event,packet,6) 
+                                log.debug("go to h4")
                     else :
-                        if event.port == 3 or event.port == 4:
+                        if event.port == 3 or event.port == 4 or event.port == 5 or event.port == 6:
                             install_fwdrule(event,packet,1) 
                             log.debug("no video service go low band")
                         else:
                             if ippkt.dstip == '10.0.0.1':
                                 install_fwdrule(event,packet,3) 
                                 log.debug("go to h1")
-                            else:
+                            elif ippkt.dstip == '10.0.0.2':
                                 install_fwdrule(event,packet,4) 
                                 log.debug("go to h2")
+                            elif ippkt.dstip == '10.0.0.3':
+                                install_fwdrule(event,packet,5) 
+                                log.debug("go to h3")
+                            elif ippkt.dstip == '10.0.0.4':
+                                install_fwdrule(event,packet,6) 
+                                log.debug("go to h4")
                 if dpid_to_str(event.dpid) == '00-00-00-00-00-02' :
                     if event.port == 1:
                         install_fwdrule(event,packet,2) 
@@ -107,12 +119,13 @@ class VideoSlice (EventMixin):
                         log.debug("video service go high band to s1")
                     
                 if dpid_to_str(event.dpid) == '00-00-00-00-00-04' :
-                    if ippkt.dstip == '10.0.0.3':
+                    log.debug("s4 destip %s", ippkt.dstip)
+                    if ippkt.dstip == '10.0.0.5':
                         install_fwdrule(event,packet,3) 
-                        log.debug("go to h3")
-                    elif ippkt.dstip == '10.0.0.4':
+                        log.debug("go to h5")
+                    elif ippkt.dstip == '10.0.0.6':
                         install_fwdrule(event,packet,4) 
-                        log.debug("go to h4")
+                        log.debug("go to h6")
                     elif tcpp.srcport == 1880:
                         install_fwdrule(event,packet,2) 
                         log.debug("go to s3")
