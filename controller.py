@@ -171,8 +171,8 @@ class VideoSlice (EventMixin):
             
             policies = {}
             for row in reader:
-                addr1 = row['mac_0']
-                addr2 = row['mac_1']
+                addr1 = row['addr1']
+                addr2 = row['addr2']
                 if "." in addr1 and "." in addr2:
                     policies[row['id']] = Policy(IPAddr(addr1), IPAddr(addr2))
                 else:
