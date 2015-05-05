@@ -21,6 +21,7 @@ import socket
 log = core.getLogger()
 Policy = namedtuple('Policy', ('src', 'dst'))
 policyFile =  "%s/pox/firewall-policies.csv" % os.environ[ 'HOME' ]
+portFile = "%s/pox/port-policies.csv" % os.environ[ 'HOME' ]
 
 class VideoSlice (EventMixin):
 
@@ -141,18 +142,20 @@ class VideoSlice (EventMixin):
         Add your logic here for firewall application
         '''
         policies = self.read_policies(policyFile)
+        ports = self.read_port_policies(portFile)
+
         for policy in policies.itervalues():
             if type(policy.src) is IPAddr and type(policy.dst) is IPAddr:
-                log.debug("~~> Source IP address is %s", policy.src)
-                log.debug("~~> Destination IP address is %s", policy.dst)
+                log.debug("Source IP address is %s", policy.src)
+                log.debug("Destination IP address is %s", policy.dst)
 
                 match = of.ofp_match(dl_type=0x800,  nw_proto = pkt.ipv4.ICMP_PROTOCOL)
                 match.nw_src = policy.src
                 match.nw_dst = policy.dst
 
             elif type(policy.src) is EthAddr and type(policy.dst) is EthAddr:
-                log.debug("~~> Source Mac is %s", policy.src)
-                log.debug("~~> Destination Mac is %s", policy.dst)
+                log.debug("Source Mac is %s", policy.src)
+                log.debug("Destination Mac is %s", policy.dst)
 
                 match = of.ofp_match(dl_src = policy.src, dl_dst = policy.dst)
 
@@ -163,6 +166,19 @@ class VideoSlice (EventMixin):
             event.connection.send(fm)
 
             log.debug("Firewall rules installed on %s", dpidToStr(event.dpid))
+
+        for port in ports.itervalues():
+            log.debug("Forbidden Port number is %s", port)
+            pmatch = of.ofp_match(dl_type=0x800,  nw_proto = pkt.ipv4.ICMP_PROTOCOL, 
+                                tp_dst = int(port))
+
+            #installl the mods to block matches
+            pm = of.ofp_flow_mod()
+            pm.priority = 20
+            pm.match = pmatch
+            event.connection.send(pm)
+
+            log.debug("Port rules installed on %s", dpidToStr(event.dpid))
             
 
     def read_policies(self, file):
@@ -181,6 +197,14 @@ class VideoSlice (EventMixin):
                 print policies[row['id']]
         return policies
 
+    def read_port_policies(self, file):
+        with open(file, 'r') as f:
+            reader = DictReader(f, delimiter = ",")
+
+            ports = {}
+            for row in reader:
+                ports[row['id']] = row['port']
+        return ports
 
 def launch():
     
