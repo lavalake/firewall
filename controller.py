@@ -163,6 +163,7 @@ class VideoSlice (EventMixin):
             fm = of.ofp_flow_mod()
             fm.priority = 20  
             fm.match = match
+            fm.hard_timeout = 0
             event.connection.send(fm)
 
             log.debug("Firewall rules installed on %s", dpidToStr(event.dpid))
@@ -176,6 +177,7 @@ class VideoSlice (EventMixin):
             pm = of.ofp_flow_mod()
             pm.priority = 20
             pm.match = pmatch
+            pm.hard_timeout = 0
             event.connection.send(pm)
 
             log.debug("Port rules installed on %s", dpidToStr(event.dpid))
