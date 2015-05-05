@@ -15,7 +15,8 @@ from collections import namedtuple
 from csv import DictReader
 
 log = core.getLogger()
-
+Policy = namedtuple('Policy', ('src', 'dst'))
+policyFile =  "%s/pox/firewall-policies.csv" % os.environ[ 'HOME' ]
 
 class VideoSlice (EventMixin):
 
@@ -49,6 +50,8 @@ class VideoSlice (EventMixin):
             else:
                 log.debug("Got unicast packet for %s at %s (input port %d):",
                           packet.dst, dpid_to_str(event.dpid), event.port)
+                flood()
+                return
                 '''
 
                 Add your logic here to slice the network
@@ -65,7 +68,6 @@ class VideoSlice (EventMixin):
 
         forward()
 
-
     def _handle_ConnectionUp(self, event):
         dpid = dpidToStr(event.dpid)
         log.debug("Switch %s has come up.", dpid)
@@ -73,14 +75,25 @@ class VideoSlice (EventMixin):
         Add your logic here for firewall application
         '''
         policies = self.read_policies(policyFile)
-        for key, value in policies.iteritems():
-            print "Source Mac" + value.scr
-            print "Destination Mac" + value.dst
+        for policy in policies.itervalues():
+            log.debug("~~> Source Mac is %s", policy.src)
+            log.debug("~~> Destination Mac is %s", policy.dst)
+
+            match = of.ofp_match(dl_src = policy.src, dl_dst = policy.dst)
+
+            # install the mods to block matches
+            fm = of.ofp_flow_mod()
+            fm.priority = 20  
+            fm.match = match
+            event.connection.send(fm)
+
+            log.debug("Firewall rules installed on %s", dpidToStr(event.dpid))
+            
 
     def read_policies(self, file):
         with open(file, 'r') as f:
             reader = DictReader(f, delimiter = ",")
-            Policy = namedtuple('Policy', 'scr dst')
+            
             policies = {}
             for row in reader:
                 policies[row['id']] = Policy(EthAddr(row['mac_0']), EthAddr(row['mac_1']))
@@ -88,10 +101,7 @@ class VideoSlice (EventMixin):
         return policies
 
 def launch():
-
-    # Accept user input, the path of the policy file
-    policyFile = sys.argv[1]
-
+    
     # Run spanning tree so that we can deal with topologies with loops
     pox.openflow.discovery.launch()
     pox.openflow.spanning_tree.launch()
