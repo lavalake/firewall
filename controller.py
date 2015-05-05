@@ -30,8 +30,11 @@ class VideoSlice (EventMixin):
         """
         Handle packet in messages from the switch to implement above algorithm.
         """
+        print("new packet in")
         packet = event.parsed
+        arp = event.parsed.find('arp')
         tcpp = event.parsed.find('tcp')
+        icmp = event.parsed.find('icmp')
 
         def install_fwdrule(event,packet,outport):
             msg = of.ofp_flow_mod() #install a flow table entry
@@ -57,6 +60,64 @@ class VideoSlice (EventMixin):
                 Add your logic here to slice the network
 
                 '''
+                ippkt = packet.find('ipv4')
+                if dpid_to_str(event.dpid) == '00-00-00-00-00-01' :
+                    
+                    destPort = tcpp.dstport
+                    srcPort = tcpp.srcport
+                    if destPort == 1880 or srcPort == 1880 :
+                        log.debug("video service go high band")
+                        if event.port == 3 or event.port == 4:
+                            install_fwdrule(event,packet,2) 
+                        else:
+                            if ippkt.dstip == '10.0.0.1':
+                                install_fwdrule(event,packet,3) 
+                                log.debug("go to h1")
+                            else:
+                                install_fwdrule(event,packet,4) 
+                                log.debug("go to h2")
+                    else :
+                        if event.port == 3 or event.port == 4:
+                            install_fwdrule(event,packet,1) 
+                            log.debug("no video service go low band")
+                        else:
+                            if ippkt.dstip == '10.0.0.1':
+                                install_fwdrule(event,packet,3) 
+                                log.debug("go to h1")
+                            else:
+                                install_fwdrule(event,packet,4) 
+                                log.debug("go to h2")
+                if dpid_to_str(event.dpid) == '00-00-00-00-00-02' :
+                    if event.port == 1:
+                        install_fwdrule(event,packet,2) 
+                        log.debug("no video service go low band to s4")
+                    else:
+                        install_fwdrule(event,packet,1) 
+                        log.debug("no video service go low band to s1")
+
+                if dpid_to_str(event.dpid) == '00-00-00-00-00-03' :
+                    if event.port == 1:
+                        install_fwdrule(event,packet,2) 
+                        log.debug(" video service go high band to s4")
+                    else:
+                        install_fwdrule(event,packet,1) 
+                        log.debug("video service go high band to s1")
+                    
+                if dpid_to_str(event.dpid) == '00-00-00-00-00-04' :
+                    if ippkt.dstip == '10.0.0.3':
+                        install_fwdrule(event,packet,3) 
+                        log.debug("go to h3")
+                    elif ippkt.dstip == '10.0.0.4':
+                        install_fwdrule(event,packet,4) 
+                        log.debug("go to h4")
+                    elif tcpp.srcport == 1880:
+                        install_fwdrule(event,packet,2) 
+                        log.debug("go to s3")
+                    else :
+                        install_fwdrule(event,packet,1) 
+                        log.debug("go to s2")
+
+
         # flood, but don't install the rule
         def flood (message = None):
             """ Floods the packet """
@@ -66,6 +127,9 @@ class VideoSlice (EventMixin):
             msg.in_port = event.port
             event.connection.send(msg)
 
+        if arp or icmp:
+            flood()
+            return
         forward()
 
 
