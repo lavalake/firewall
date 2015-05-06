@@ -1,24 +1,27 @@
-'''
-Please add your name:
-Please add your matric number: 
-'''
-
 from pox.core import core
 from collections import defaultdict
 
 import pox.openflow.libopenflow_01 as of
 import pox.openflow.discovery
 import pox.openflow.spanning_tree
+import pox.lib.packet as pkt
 
 from pox.lib.revent import *
 from pox.lib.util import dpid_to_str
 from pox.lib.util import dpidToStr
 from pox.lib.addresses import IPAddr, EthAddr
+
 from collections import namedtuple
 import os
+from collections import namedtuple
+from csv import DictReader
+
+import socket
 
 log = core.getLogger()
-
+Policy = namedtuple('Policy', ('src', 'dst'))
+policyFile =  "%s/pox/firewall-policies.csv" % os.environ[ 'HOME' ]
+portFile = "%s/pox/port-policies.csv" % os.environ[ 'HOME' ]
 
 class VideoSlice (EventMixin):
 
@@ -145,14 +148,99 @@ class VideoSlice (EventMixin):
             return
         forward()
 
-
     def _handle_ConnectionUp(self, event):
         dpid = dpidToStr(event.dpid)
         log.debug("Switch %s has come up.", dpid)
         '''
         Add your logic here for firewall application
         '''
+        policies = self.read_policies(policyFile)
+        ports = self.read_port_policies(portFile)
+
+        for policy in policies.itervalues():
+            if type(policy.src) is IPAddr and type(policy.dst) is IPAddr:
+                log.debug("Source IP address is %s", policy.src)
+                log.debug("Destination IP address is %s", policy.dst)
+
+                match1 = of.ofp_match(dl_type=0x800,  nw_proto = pkt.ipv4.ICMP_PROTOCOL)
+                match1.nw_src = policy.src
+                match1.nw_dst = policy.dst
+
+                # install the mods to block matches
+                fm1 = of.ofp_flow_mod()
+                fm1.priority = 20  
+                fm1.match = match1
+                fm1.hard_timeout = 0
+                event.connection.send(fm1)
+
+                match2 = of.ofp_match(dl_type=0x800,  nw_proto = 6)
+                match2.nw_src = policy.src
+                match2.nw_dst = policy.dst
+
+                # install the mods to block matches
+                fm2 = of.ofp_flow_mod()
+                fm2.priority = 20  
+                fm2.match = match2
+                fm2.hard_timeout = 0
+                event.connection.send(fm2)
+
+            elif type(policy.src) is EthAddr and type(policy.dst) is EthAddr:
+                log.debug("Source Mac is %s", policy.src)
+                log.debug("Destination Mac is %s", policy.dst)
+
+                match = of.ofp_match(dl_src = policy.src, dl_dst = policy.dst)
+
+                # install the mods to block matches
+                fm = of.ofp_flow_mod()
+                fm.priority = 20  
+                fm.match = match
+                fm.hard_timeout = 0
+                event.connection.send(fm)
+
+            log.debug("Firewall rules installed on %s", dpidToStr(event.dpid))
+
+        for port in ports.itervalues():
+            log.debug("Forbidden Port number is %s", port)
+            pmatch = of.ofp_match(dl_type=0x800,  nw_proto = 6, 
+                                tp_dst = int(port))
+
+            #installl the mods to block matches
+            pm = of.ofp_flow_mod()
+            pm.priority = 20
+            pm.match = pmatch
+            pm.hard_timeout = 0
+            event.connection.send(pm)
+
+            log.debug("Port rules installed on %s", dpidToStr(event.dpid))
+            
+
+    def read_policies(self, file):
+        with open(file, 'r') as f:
+            reader = DictReader(f, delimiter = ",")
+            
+            policies = {}
+            for row in reader:
+                addr1 = row['addr1']
+                addr2 = row['addr2']
+                if "." in addr1 and "." in addr2:
+                    policies[row['id']] = Policy(IPAddr(addr1), IPAddr(addr2))
+                else:
+                    policies[row['id']] = Policy(EthAddr(addr1), EthAddr(addr2))
+                
+                print policies[row['id']]
+        return policies
+
+    def read_port_policies(self, file):
+        with open(file, 'r') as f:
+            reader = DictReader(f, delimiter = ",")
+
+            ports = {}
+            for row in reader:
+                ports[row['id']] = row['port']
+        return ports
+
 def launch():
+    
     # Run spanning tree so that we can deal with topologies with loops
     pox.openflow.discovery.launch()
     pox.openflow.spanning_tree.launch()
