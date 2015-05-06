@@ -43,6 +43,7 @@ class VideoSlice (EventMixin):
             msg = of.ofp_flow_mod() #install a flow table entry
             msg.idle_timeout = 10
             msg.hard_timeout = 30
+            msg.priority=30
             msg.match = of.ofp_match.from_packet(packet, event.port)
             msg.actions.append(of.ofp_action_output(port = outport))
             msg.data = event.ofp
