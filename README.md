@@ -17,5 +17,12 @@ You should see all hosts can connect to each other except the links specified in
 	mininet > h1 iperf -c h5 -p 80
 	mininet > h1 iperf -c h5 -p 81
 	
+3. You can verify the flowspace slicing by runing server with 1880 port and other port
+    mininet > h5 iperf -s -p 1880&
+    mininet > h1 iperf -c 10.0.0.5 -p 1880
+    you can see the bandwidth between h1 and h5 is about 10M
+    mininet > h5 iperf -s -p 1800&
+    mininet > h1 iperf -c 10.0.0.5 -p 1800
+    you can see the bandwidth between h1 and h5 is about 1M
 
 
