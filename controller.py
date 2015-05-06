@@ -30,17 +30,18 @@ class VideoSlice (EventMixin):
         core.openflow_discovery.addListeners(self)
 
     def _handle_PacketIn (self, event):
-        """
-        Handle packet in messages from the switch to implement above algorithm.
-        """
-        print("new packet in")
+        # Handle packet in messages from the switch to implement above algorithm.
+        
+        # print("new packet in")
         packet = event.parsed
         arp = event.parsed.find('arp')
         tcpp = event.parsed.find('tcp')
         icmp = event.parsed.find('icmp')
 
         def install_fwdrule(event,packet,outport):
-            msg = of.ofp_flow_mod() #install a flow table entry
+            
+            #install a flow table entry
+            msg = of.ofp_flow_mod() 
             msg.idle_timeout = 10
             msg.hard_timeout = 30
             msg.priority=30
@@ -60,11 +61,8 @@ class VideoSlice (EventMixin):
                 ippkt = packet.find('ipv4')
                 log.debug("Got unicast packet for %s %s at %s (input port %d):",
                           ippkt.dstip, packet.dst, dpid_to_str(event.dpid), event.port)
-                '''
 
-                Add your logic here to slice the network
-
-                '''
+                # slice the network
                 if dpid_to_str(event.dpid) == '00-00-00-00-00-01' :
                     
                     destPort = tcpp.dstport
@@ -137,7 +135,6 @@ class VideoSlice (EventMixin):
 
         # flood, but don't install the rule
         def flood (message = None):
-            """ Floods the packet """
             msg = of.ofp_packet_out()
             msg.actions.append(of.ofp_action_output(port = of.OFPP_FLOOD))
             msg.data = event.ofp
@@ -152,9 +149,8 @@ class VideoSlice (EventMixin):
     def _handle_ConnectionUp(self, event):
         dpid = dpidToStr(event.dpid)
         log.debug("Switch %s has come up.", dpid)
-        '''
-        Add your logic here for firewall application
-        '''
+        
+        # implement firewall and port policies
         policies = self.read_policies(policyFile)
         ports = self.read_port_policies(portFile)
 
@@ -167,7 +163,7 @@ class VideoSlice (EventMixin):
                 match1.nw_src = policy.src
                 match1.nw_dst = policy.dst
 
-                # install the mods to block matches
+                # install the mods to block matching ip address for ICMP protocol
                 fm1 = of.ofp_flow_mod()
                 fm1.priority = 20  
                 fm1.match = match1
@@ -178,7 +174,7 @@ class VideoSlice (EventMixin):
                 match2.nw_src = policy.src
                 match2.nw_dst = policy.dst
 
-                # install the mods to block matches
+                # install the mods to block matching ip address for tcp protocol
                 fm2 = of.ofp_flow_mod()
                 fm2.priority = 20  
                 fm2.match = match2
@@ -186,12 +182,12 @@ class VideoSlice (EventMixin):
                 event.connection.send(fm2)
 
             elif type(policy.src) is EthAddr and type(policy.dst) is EthAddr:
-                log.debug("Source Mac is %s", policy.src)
-                log.debug("Destination Mac is %s", policy.dst)
+                log.debug("Source Mac address is %s", policy.src)
+                log.debug("Destination Mac address is %s", policy.dst)
 
                 match = of.ofp_match(dl_src = policy.src, dl_dst = policy.dst)
 
-                # install the mods to block matches
+                # install the mods to block matching mac address
                 fm = of.ofp_flow_mod()
                 fm.priority = 20  
                 fm.match = match
@@ -205,7 +201,7 @@ class VideoSlice (EventMixin):
             pmatch = of.ofp_match(dl_type=0x800,  nw_proto = 6, 
                                 tp_dst = int(port))
 
-            #installl the mods to block matches
+            #installl the mods to block matching port number for tcp protocol
             pm = of.ofp_flow_mod()
             pm.priority = 20
             pm.match = pmatch
@@ -219,6 +215,7 @@ class VideoSlice (EventMixin):
         with open(file, 'r') as f:
             reader = DictReader(f, delimiter = ",")
             
+            # read the firewall policies
             policies = {}
             for row in reader:
                 addr1 = row['addr1']
@@ -235,6 +232,7 @@ class VideoSlice (EventMixin):
         with open(file, 'r') as f:
             reader = DictReader(f, delimiter = ",")
 
+            # read the port policies
             ports = {}
             for row in reader:
                 ports[row['id']] = row['port']
@@ -245,8 +243,6 @@ def launch():
     # Run spanning tree so that we can deal with topologies with loops
     pox.openflow.discovery.launch()
     pox.openflow.spanning_tree.launch()
-
-    '''
-    Starting the Video Slicing module
-    '''
+    
+    # Starting the Video Slicing module
     core.registerNew(VideoSlice)
