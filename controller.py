@@ -35,6 +35,7 @@ class VideoSlice (EventMixin):
         packet = event.parsed
         arp = event.parsed.find('arp')
         tcpp = event.parsed.find('tcp')
+        udpp = event.parsed.find('udp')
         icmp = event.parsed.find('icmp')
 
         def install_fwdrule(event,packet,outport):
@@ -61,11 +62,15 @@ class VideoSlice (EventMixin):
                 log.debug("Got unicast packet for %s %s at %s (input port %d):",
                           ippkt.dstip, packet.dst, dpid_to_str(event.dpid), event.port)
 
-                # slice the network, realtime service (port1880) go to high band path
-                if dpid_to_str(event.dpid) == '00-00-00-00-00-01' :
-                    
+                if tcpp: 
                     destPort = tcpp.dstport
                     srcPort = tcpp.srcport
+                elif udpp:
+                    destPort = udpp.dstport
+                    srcPort = udpp.srcport
+
+                # slice the network, realtime service (port1880) go to high band path
+                if dpid_to_str(event.dpid) == '00-00-00-00-00-01' :
                     if event.port == 3 or event.port == 4 or event.port == 5 or event.port == 6:
                         if destPort == 1880 :
                             log.debug("realtime service go high band")
@@ -111,7 +116,7 @@ class VideoSlice (EventMixin):
                         install_fwdrule(event,packet,4) 
                         log.debug("go to h6")
                     elif event.port == 3 or event.port == 4:
-                        if tcpp.srcport == 1880:
+                        if srcPort == 1880:
                             install_fwdrule(event,packet,2) 
                             log.debug("go to s3")
                         else :
@@ -166,6 +171,7 @@ class VideoSlice (EventMixin):
                 fm2.match = match2
                 fm2.hard_timeout = 0
                 event.connection.send(fm2)
+
 
             elif type(policy.src) is EthAddr and type(policy.dst) is EthAddr:
                 log.debug("Source Mac address is %s", policy.src)
